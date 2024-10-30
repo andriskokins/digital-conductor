@@ -19,14 +19,6 @@ DATA_DIR = "data/positive"  # Path to your data directory
 SAVE_INDEX_PATH = "index.joblib"  # Path to save the index
 CSV_PATH = "COMP3074-CW1-Dataset.csv"
 
-intent_patterns = {
-        'greeting': ['hello', 'hi', 'hey', 'good morning', 'good evening'],
-        'identity': ['what is my name', 'who am i',],
-        'question': ['what is', 'how do', 'can you explain', 'tell me about', 'why', 'when', 'where'],
-        'small_talk': ['how are you', "what's up", "how's it going", 'how are things'],
-        'discoverability': ['what can you do', 'help', 'what are your capabilities', 'what do you know']
-    }
-
 # POS tag mapping to WordNet format
 posmap = {
     'ADJ': 'a',
@@ -40,8 +32,7 @@ def preprocess_text(text):
     lemmatizer = WordNetLemmatizer()
 
     tokens = word_tokenize(text.lower())
-    filtered_tokens = [word for word in tokens if word.isalnum() and
-                       word not in stopwords.words('english')]
+    filtered_tokens = [word for word in tokens if word.isalnum()]
 
     postags = nltk.pos_tag(filtered_tokens, tagset='universal')
     lemmatized_tokens = []
@@ -52,30 +43,67 @@ def preprocess_text(text):
         else:
             lemmatized_word = lemmatizer.lemmatize(word)
 
-        if lemmatized_word.isalpha() and lemmatized_word not in stopwords.words('english'):
+        if lemmatized_word.isalpha():
             lemmatized_tokens.append(lemmatized_word)
 
     return lemmatized_tokens
 
 
-def build_index(data, fields_to_read):
+def build_index(data, fields_to_read, is_intent=False):
     """Builds the inverted index across Q&A corpus or intent patterns."""
     index = defaultdict(list)
     doc_count = len(data)
 
     for doc_id, content in data.items():
-        text = content.get('question')
-        if text:
-            terms = preprocess_text(text)
+        if is_intent:
+            # For intent patterns, process each pattern in the list
+            terms = []
+            if isinstance(content, (list, tuple)) and len(content) > 0:
+                # If content is a single list/tuple of patterns
+                patterns = content[0] if isinstance(content[0], (list, tuple)) else content
+                for pattern in patterns:
+                    terms.extend(word_tokenize(pattern.lower()))
+
+            # Calculate term frequencies for this document
             term_frequencies = defaultdict(int)
             for term in terms:
-                term_frequencies[term] += 1
+                if term.isalnum():  # Only include alphanumeric terms
+                    term_frequencies[term] += 1
+
+            # Calculate weights and add to index
             for term, freq in term_frequencies.items():
-                idf = math.log(doc_count / (1 + len(index[term]))) + 1
+                # Calculate IDF: log(total_docs / (1 + num_docs_with_term))
+                docs_with_term = len(index[term])
+                idf = math.log(doc_count / (1 + docs_with_term)) + 1
                 weight = freq * idf
                 index[term].append((doc_id, weight))
+        else:
+            # Original Q&A corpus processing
+            for field in fields_to_read:
+                text = content.get(field)
+                if text:
+                    terms = word_tokenize(text.lower())
+                    term_frequencies = defaultdict(int)
+                    for term in terms:
+                        if term.isalnum():
+                            term_frequencies[term] += 1
+                    for term, freq in term_frequencies.items():
+                        idf = math.log(doc_count / (1 + len(index[term]))) + 1
+                        weight = freq * idf
+                        index[term].append((doc_id, weight))
 
     return index
+
+
+# Fixed intent patterns structure
+intent_patterns = {
+    'identity': ['what is my name','who am i'],
+    'greeting': ['hello','hi','hey','good morning','good evening'],
+    'question': ['what is', "what are", 'how do', 'can you explain','tell me about','why', 'when','where'],
+    'small_talk': ['how are you',"what's up","how's it going", 'how are things'],
+    'discoverability': ['what can you do','help','what are your capabilities','what do you know']
+}
+
 
 
 def load_index(path=SAVE_INDEX_PATH, corpus=None):
@@ -85,7 +113,7 @@ def load_index(path=SAVE_INDEX_PATH, corpus=None):
          return index
     except FileNotFoundError:
          print(f"Index file not found at {path}. Building a new index.")
-         return build_index(corpus, 'question')
+         return build_index(corpus, ["question", ""])
 
 
 def save_index(index, path=SAVE_INDEX_PATH):
@@ -146,31 +174,27 @@ def search(query, index, corpus, top_n=5):
     return top_answers
 
 
-def intent_match(input):
-    input_text = input.lower().strip()
-
-
+# Example usage:
 if __name__ == "__main__":
-    # Load Corpus from CSV
+    fields_to_index = ['greeting', 'small_talk', 'discoverability', 'identity']
+    intent_index = build_index(intent_patterns, fields_to_index, is_intent=True)
+    save_index(intent_index, "intent.joblib")
+
     corpus = load_csv(CSV_PATH)
-    # Build or load index
     index = load_index(SAVE_INDEX_PATH, corpus)
-    # save_index(index, SAVE_INDEX_PATH)
+    save_index(index, SAVE_INDEX_PATH)
 
-    # fields_to_index = ['question', 'answer', 'greeting', 'small_talk', 'discoverability', 'identity']
-    # intent_index = build_index(intent_patterns, fields_to_index)
-    # save_index(intent_index, "intent.joblib")
+    query = "What are stocks and bonds"
+    results = search(query, index, corpus, top_n=3)
 
-    query = "how did anne frank die"
-    top_answers = search(query, index, corpus, top_n=3)  # Get top 3 answers
+    print("Question - ", query+"\n")
+    for result in results:
+        print(f"answer - {result['answer']}")
+        print(f"score - {result['score']}")
+        print(f"doc id - {result['doc_id']}")
+        print('-'* 30)
 
-    # for result in top_answers:
-    #     print(result)
+    results = search("what are stocks and bonds", intent_index, intent_patterns)
 
-    for result in top_answers:
-        print(f"Document ID: {result['doc_id']}")
-        print(f"Score: {result['score']}")
-        print(f"Answer: {result['answer']}")
-        print("-" * 20)
-
-    print("0")
+    for result in results:
+        print(result)
