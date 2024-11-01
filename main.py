@@ -1,5 +1,3 @@
-import sqlite3
-
 import nltk
 import pandas as pd
 from nltk import WordNetLemmatizer, word_tokenize, pos_tag, ne_chunk
@@ -7,6 +5,9 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.spatial.distance import cosine
 import numpy as np
+
+nltk.download('maxent_ne_chunker_tab')
+nltk.download('words')
 
 
 def preprocess(raw_text, remove_stopwords):
