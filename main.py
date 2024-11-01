@@ -2,7 +2,7 @@ import sqlite3
 
 import nltk
 import pandas as pd
-from nltk import WordNetLemmatizer
+from nltk import WordNetLemmatizer, word_tokenize, pos_tag, ne_chunk
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.spatial.distance import cosine
@@ -42,34 +42,24 @@ def read_csv(filepath):
     return df
 
 
-def build_index(data, column):
+def build_index(data, column, stopwords):
     questions = data.loc[:, column]
 
-    # Apply preprocessing to each question in the Series
-    questions = questions.apply(lambda q: preprocess(q, remove_stopwords=True))
+    # Apply preprocessing to each question in the corpus
+    # do not remove stops words for intent matrix
+    questions = questions.apply(lambda q: preprocess(q, remove_stopwords=stopwords))
 
     # Create a TF-IDF term-document matrix
     vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform(questions)  # Keep as sparse matrix
+    tfidf_matrix = vectorizer.fit_transform(questions)
 
-    # Get terms for reference
-    terms = vectorizer.get_feature_names_out()
-
-    # Convert to DataFrame for visualization (optional)
-    tfidf_df = pd.DataFrame(
-        tfidf_matrix.toarray(),
-        columns=terms,
-        index=[f'Q{i + 1}' for i in range(len(questions))]
-    )
-
-    return tfidf_matrix, vectorizer  # Return sparse matrix instead of DataFrame
+    return tfidf_matrix, vectorizer
 
 
 def query_similarity(query, tfidf_matrix, vectorizer):
     # Transform the query to match the TF-IDF representation
     query_vector = vectorizer.transform([query])
 
-    # Calculate cosine similarity using matrix operations
     # Convert to dense arrays for the dot product
     query_array = query_vector.toarray().flatten()
     doc_arrays = tfidf_matrix.toarray()
@@ -77,7 +67,11 @@ def query_similarity(query, tfidf_matrix, vectorizer):
     # Calculate similarities using vectorized operations
     similarity_scores = []
     for doc_vector in doc_arrays:
-        similarity = 1 - cosine(query_array, doc_vector)
+        # Check if either vector is zero magnitude to avoid divide-by-zero error
+        if np.linalg.norm(query_array) == 0 or np.linalg.norm(doc_vector) == 0:
+            similarity = 0  # Assign a similarity score of 0 if either vector has zero magnitude
+        else:
+            similarity = 1 - cosine(query_array, doc_vector)
         similarity_scores.append(similarity)
 
     # Create results DataFrame
@@ -88,24 +82,8 @@ def query_similarity(query, tfidf_matrix, vectorizer):
 
     return results.sort_values(by='Cosine Similarity', ascending=False)
 
-intent_patterns = {
-    'greeting': ['hello', 'hi', 'hey', 'good morning', 'good evening'],
-    'identity': ['what is my name', 'who am i'],
-    'question': ['what is', 'what are', 'how do', 'how', 'how are', 'how much', 'what'],
-    'small_talk': ['how are you', "what's up", "how's it going", 'how are things'],
-    'discoverability': ['what can you do', 'help', 'what are your capabilities', 'what do you know']
-}
 
-def intent_match(query):
-    # Check if the query matches any intent pattern
-    for intent, patterns in intent_patterns.items():
-        for pattern in patterns:
-            if pattern in query.lower():
-                return intent
-    return None
-
-
-def identity(name):
+def save_name(name):
     connection = sqlite3.connect('names.db')
     cursor = connection.cursor()
 
@@ -122,48 +100,118 @@ def identity(name):
         print("Hello", name, ", I will make sure to remember you next time.")
         return
     else:
-        print("Welcome back", name)
+        print("Howdy", name, '!')
     connection.close()
 
 
+def create_intent_index():
+    # can add more patterns for better intent matching
+    data = {
+        'Pattern': [
+            'hello', 'hi', 'hey', 'good morning', 'good evening',
+            'what is my name', 'who am i',
+            'how are you', "what's up", "how's it going", 'how are things',
+            'what can you do', 'help', 'what are your capabilities', 'what do you know',
+            'what is', 'what are', 'how do', 'how'
+        ],
+        'Intent': [
+            'greeting', 'greeting', 'greeting', 'greeting', 'greeting',
+            'identity', 'identity',
+            'small_talk', 'small_talk', 'small_talk', 'small_talk',
+            'discoverability', 'discoverability', 'discoverability', 'discoverability',
+            'question', 'question', 'question', 'question'
+        ]
+    }
+    df = pd.DataFrame(data)
+    # DO NOT REMOVE STOPWORDS
+    # "what can you do" outputs an empty string otherwise
+    tfidf_matrix, vectorizer = build_index(df, 'Pattern', False)
+    return df, tfidf_matrix, vectorizer
+
+
+def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
+    # Get similarity scores
+    similarity_scores = query_similarity(user_input, intent_matrix, intent_vectorizer)
+
+    # Get the index of the highest scoring pattern
+    best_match_idx = similarity_scores.index[0]
+
+    # Get the corresponding intent
+    matched_intent = intent_corpus.iloc[best_match_idx]['Intent']
+
+    # Only return the intent if the similarity score is above a threshold
+    if similarity_scores.iloc[0]['Cosine Similarity'] > 0.1:
+        return matched_intent
+    return 'unknown'
+
+
+def extract_name(text):
+    # Tokenize and tag the text
+    tokens = word_tokenize(text)
+    tagged = pos_tag(tokens)
+
+    # Use NLTK's named entity chunker
+    entities = ne_chunk(tagged)
+
+    # Look for PERSON entities
+    for chunk in entities:
+        if hasattr(chunk, 'label') and chunk.label() == 'PERSON':
+            return ' '.join(c[0] for c in chunk.leaves())
+
+
 if __name__ == "__main__":
-    # Configuration and global variables
     CSV_PATH = "COMP3074-CW1-Dataset.csv"
     corpus = read_csv(CSV_PATH)
 
-    # Build the TF-IDF index
-    tfidf_matrix, vectorizer = build_index(corpus, "Question")
-    print("Yappinator: Hello, how can you help you today \nType help to see what I can do")
+    # stops word are removed for the QnA
+    tfidf_matrix, vectorizer = build_index(corpus, "Question", True)
+    intent_corpus, intent_matrix, intent_vectorizer = create_intent_index()
 
+    print("Yappinator: Hello, how can I help you today?")
+
+    username = ""
     while True:
         user_input = input("> ")
-        print("user said", user_input)
 
-        if user_input in ("quit", "stop", "exit"):
+        if user_input.lower() in ("quit", "stop", "exit"):
             print("Yappinator: Goodbye")
             break
 
-        if user_input == "help":
-            continue
+        intent = get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer)
 
-        intent = intent_match(user_input)
-        print(intent)
         if intent == 'greeting':
-            print("Yappinator: Hello, whats your name?")
-            name = input("> ")
-            identity(name)
+            if username:
+                print(f"Hello {username}")
+            else:
+                print("Yappinator: Hello, what's your name?")
+                name_input = input("> ")
+                extracted_name = extract_name(name_input)
+                if extracted_name:
+                    save_name(extracted_name)
+                    username = extracted_name
+                else:
+                    # If NER fails, use the entire input as the name
+                    save_name(name_input)
+                    username = name_input
+
         elif intent == 'identity':
-            continue
+            if username:
+                print("Yappinator: Your name is", username)
+            else:
+                print("Yappinator: I don't know your name yet. Would you like to introduce yourself?")
+                save_name(input("> "))
+
         elif intent == 'question':
             query = preprocess(user_input, remove_stopwords=True)
             similarity_scores = query_similarity(query, tfidf_matrix, vectorizer)
-            best_ans = similarity_scores.iloc[0]['Document']
-            print(f"Yappinator: ", corpus.loc[best_ans]['Answer'])
-            continue
-        elif intent == 'small_talk':
-            continue
-        elif intent == 'discoverability':
-            continue
-        else:
-            print("Yappinator: Sorry I didn't understand that, please try again")
+            best_ans = similarity_scores.index[0]
+            print(f"Yappinator: {corpus.iloc[best_ans]['Answer']}")
 
+        elif intent == 'small_talk':
+            print("Yappinator: I'm doing well, thanks for asking! How can I help you today?")
+
+        elif intent == 'discoverability':
+            print('Yappinator: I can answer some questions, try asking me "What does gringo mean?"')
+
+        else:
+            print("Yappinator: Sorry, I didn't understand that. Please try again.")
