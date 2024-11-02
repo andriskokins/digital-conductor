@@ -1,3 +1,6 @@
+import sqlite3
+import string
+
 import nltk
 import pandas as pd
 from nltk import WordNetLemmatizer, word_tokenize, pos_tag, ne_chunk
@@ -6,17 +9,21 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.spatial.distance import cosine
 import numpy as np
 
+
 nltk.download('maxent_ne_chunker_tab')
 nltk.download('words')
 
 
 def preprocess(raw_text, remove_stopwords):
+    raw_text = raw_text.strip()
     lemmatizer = WordNetLemmatizer()
     filtered_tokens = nltk.word_tokenize(raw_text.lower())
     processed_tokens = []
 
+    # if qna then remove stopwords and punctuation
     if remove_stopwords:
-        filtered_tokens = [word for word in filtered_tokens if word not in stopwords.words('english')]
+        filtered_tokens = [word for word in filtered_tokens if word not in stopwords.words('english')
+                           and word not in string.punctuation]
 
     posmap = {
         'ADJ': 'a',
@@ -46,7 +53,6 @@ def read_csv(filepath):
 def build_index(data, column, stopwords):
     questions = data.loc[:, column]
 
-    # Apply preprocessing to each question in the corpus
     # do not remove stops words for intent matrix
     questions = questions.apply(lambda q: preprocess(q, remove_stopwords=stopwords))
 
@@ -61,16 +67,15 @@ def query_similarity(query, tfidf_matrix, vectorizer):
     # Transform the query to match the TF-IDF representation
     query_vector = vectorizer.transform([query])
 
-    # Convert to dense arrays for the dot product
     query_array = query_vector.toarray().flatten()
     doc_arrays = tfidf_matrix.toarray()
 
     # Calculate similarities using vectorized operations
     similarity_scores = []
     for doc_vector in doc_arrays:
-        # Check if either vector is zero magnitude to avoid divide-by-zero error
+        # Check if either vector is zero
         if np.linalg.norm(query_array) == 0 or np.linalg.norm(doc_vector) == 0:
-            similarity = 0  # Assign a similarity score of 0 if either vector has zero magnitude
+            similarity = 0
         else:
             similarity = 1 - cosine(query_array, doc_vector)
         similarity_scores.append(similarity)
@@ -98,10 +103,10 @@ def save_name(name):
         cursor.execute('''INSERT INTO Name (username)
                             VALUES(?)''', (name,))
         connection.commit()
-        print("Hello", name, ", I will make sure to remember you next time.")
+        print("Hello", name, "\b, I will make sure to remember you next time.")
         return
     else:
-        print("Howdy", name, '!')
+        print("Welcome back", name, '\b! How can I help you today?')
     connection.close()
 
 
@@ -137,21 +142,19 @@ def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
     # Get the index of the highest scoring pattern
     best_match_idx = similarity_scores.index[0]
 
-    # Get the corresponding intent
+    # use index to find the matched intent in intent corpus
     matched_intent = intent_corpus.iloc[best_match_idx]['Intent']
 
-    # Only return the intent if the similarity score is above a threshold
     if similarity_scores.iloc[0]['Cosine Similarity'] > 0.1:
         return matched_intent
     return 'unknown'
 
 
 def extract_name(text):
-    # Tokenize and tag the text
+    text = text.strip()
     tokens = word_tokenize(text)
     tagged = pos_tag(tokens)
 
-    # Use NLTK's named entity chunker
     entities = ne_chunk(tagged)
 
     # Look for PERSON entities
@@ -174,7 +177,7 @@ if __name__ == "__main__":
     while True:
         user_input = input("> ")
 
-        if user_input.lower() in ("quit", "stop", "exit"):
+        if user_input.lower() in ("quit", "stop", "exit", "goodbye"):
             print("Yappinator: Goodbye")
             break
 
@@ -182,7 +185,7 @@ if __name__ == "__main__":
 
         if intent == 'greeting':
             if username:
-                print(f"Hello {username}")
+                print(f"Hello {username}!")
             else:
                 print("Yappinator: Hello, what's your name?")
                 name_input = input("> ")
@@ -209,7 +212,10 @@ if __name__ == "__main__":
             print(f"Yappinator: {corpus.iloc[best_ans]['Answer']}")
 
         elif intent == 'small_talk':
-            print("Yappinator: I'm doing well, thanks for asking! How can I help you today?")
+            if username:
+                print("Yappinator: Im doing well, thanks for asking", username)
+            else:
+                print("Yappinator: I'm doing well, thanks for asking! How can I help you today?")
 
         elif intent == 'discoverability':
             print('Yappinator: I can answer some questions, try asking me "What does gringo mean?"')
