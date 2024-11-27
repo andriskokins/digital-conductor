@@ -1,0 +1,56 @@
+Intent,Pattern
+greeting,hello
+greeting,hi
+greeting,hey
+greeting,good morning
+greeting,good evening
+greeting,howdy
+greeting,greetings
+greeting,salutations
+greeting,how's it going
+greeting,good day
+greeting,yo
+greeting,hi there
+greeting,hey there
+greeting,hello there
+greeting,good afternoon
+identity,what is my name
+identity,who am I
+identity,what is my identity
+identity,can you tell me my name
+identity,do you know who I am
+identity,what do you call me
+identity,what is my username
+identity,what is my full name
+identity,tell me my name
+identity,who do you think I am
+small_talk,how are you
+small_talk,what's up
+small_talk,how's it going
+small_talk,how are things
+small_talk,how have you been
+small_talk,what's new
+small_talk,what's happening
+small_talk,how's everything
+small_talk,how's life
+small_talk,what are you up to
+discoverability,what can you do
+discoverability,help
+discoverability,what are your capabilities
+discoverability,what do you know
+discoverability,how can you assist me
+discoverability,what services do you offer
+discoverability,what functions do you have
+discoverability,what skills do you have
+discoverability,what tasks can you perform
+discoverability,how can you help me
+question,what is
+question,what are
+question,how do
+question,how
+question,what does
+question,why is
+question,why are
+question,where is
+question,when is
+question,who is

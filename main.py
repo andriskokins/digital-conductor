@@ -1,9 +1,11 @@
 import sqlite3
+import string
 
 import nltk
 import pandas as pd
 from nltk import WordNetLemmatizer, word_tokenize, pos_tag, ne_chunk
 from nltk.corpus import stopwords
+from pandas import DataFrame
 from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.spatial.distance import cosine
 import numpy as np
@@ -11,7 +13,14 @@ import numpy as np
 
 def preprocess(raw_text, remove_stopwords):
     lemmatizer = WordNetLemmatizer()
-    filtered_tokens = nltk.word_tokenize(raw_text.lower())
+    raw_text = raw_text.lower()
+    # Modify string.punctuation
+    string.punctuation = string.punctuation + "’" + "-" + "‘" + "-"
+    string.punctuation = string.punctuation.replace('.', '')
+    # Use the modified string.punctuation to remove punctuation from raw_text
+    raw_text = raw_text.translate(str.maketrans('', '', string.punctuation))
+
+    filtered_tokens = nltk.word_tokenize(raw_text)
     processed_tokens = []
 
     if remove_stopwords:
@@ -34,6 +43,7 @@ def preprocess(raw_text, remove_stopwords):
             processed_tokens.append(lemmatizer.lemmatize(word))
 
     # return a preprocessed string
+    print(processed_tokens)
     return " ".join(processed_tokens)
 
 
@@ -42,7 +52,7 @@ def read_csv(filepath):
     return df
 
 
-def build_index(data, column, stopwords):
+def build_index(data:DataFrame, column:str, stopwords:bool):
     questions = data.loc[:, column]
 
     # Apply preprocessing to each question in the corpus
@@ -97,32 +107,17 @@ def save_name(name):
         cursor.execute('''INSERT INTO Name (username)
                             VALUES(?)''', (name,))
         connection.commit()
-        print("Hello", name, ", I will make sure to remember you next time.")
+        print(f"Hello {name}, I will make sure to remember you next time.")
         return
     else:
-        print("Howdy", name, '!')
+        print("Welcome back", name, '\b! How can I help you today?')
     connection.close()
 
 
 def create_intent_index():
-    # can add more patterns for better intent matching
-    data = {
-        'Pattern': [
-            'hello', 'hi', 'hey', 'good morning', 'good evening',
-            'what is my name', 'who am i',
-            'how are you', "what's up", "how's it going", 'how are things',
-            'what can you do', 'help', 'what are your capabilities', 'what do you know',
-            'what is', 'what are', 'how do', 'how'
-        ],
-        'Intent': [
-            'greeting', 'greeting', 'greeting', 'greeting', 'greeting',
-            'identity', 'identity',
-            'small_talk', 'small_talk', 'small_talk', 'small_talk',
-            'discoverability', 'discoverability', 'discoverability', 'discoverability',
-            'question', 'question', 'question', 'question'
-        ]
-    }
-    df = pd.DataFrame(data)
+    # Read the CSV file into a DataFrame
+    df = pd.read_csv('intents.csv', header=0,  names=['Intent', 'Pattern'])
+
     # DO NOT REMOVE STOPWORDS
     # "what can you do" outputs an empty string otherwise
     tfidf_matrix, vectorizer = build_index(df, 'Pattern', False)
@@ -130,14 +125,24 @@ def create_intent_index():
 
 
 def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
+    user_input = preprocess(user_input, remove_stopwords=False)
+    user_input = "".join(user_input)
+    print(user_input)
+
     # Get similarity scores
     similarity_scores = query_similarity(user_input, intent_matrix, intent_vectorizer)
+
+    # Add the intents to the similarity_scores DataFrame
+    similarity_scores['Intent'] = intent_corpus['Intent'].iloc[similarity_scores.index].values
+
+    # Print the list of probabilities with intent types
+    print(similarity_scores[['Intent', 'Cosine Similarity']][:5])
 
     # Get the index of the highest scoring pattern
     best_match_idx = similarity_scores.index[0]
 
     # Get the corresponding intent
-    matched_intent = intent_corpus.iloc[best_match_idx]['Intent']
+    matched_intent = intent_corpus['Intent'].iloc[best_match_idx]
 
     # Only return the intent if the similarity score is above a threshold
     if similarity_scores.iloc[0]['Cosine Similarity'] > 0.1:
@@ -146,17 +151,29 @@ def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
 
 
 def extract_name(text):
+    # Check for invalid input
+    if text.isdigit() or text.strip() == '':
+        print("Yappinator: Please enter a name that is not a digit or empty.")
+        input_name = input("> ")
+        return extract_name(input_name)
+
     # Tokenize and tag the text
     tokens = word_tokenize(text)
     tagged = pos_tag(tokens)
-
-    # Use NLTK's named entity chunker
     entities = ne_chunk(tagged)
 
     # Look for PERSON entities
     for chunk in entities:
-        if hasattr(chunk, 'label') and chunk.label() == 'PERSON':
+        if hasattr(chunk, 'label') and (chunk.label() == 'PERSON'):
             return ' '.join(c[0] for c in chunk.leaves())
+
+    # Check tags for NNP because it doesn't seem to recognise uncommon names
+    for token, tag in tagged:
+        if tag == 'NNP':
+            return token
+
+    # No name found, try again
+    return extract_name("")
 
 
 if __name__ == "__main__":
@@ -199,7 +216,7 @@ if __name__ == "__main__":
                 print("Yappinator: Your name is", username)
             else:
                 print("Yappinator: I don't know your name yet. Would you like to introduce yourself?")
-                save_name(input("> "))
+                save_name(extract_name(input("> ")))
 
         elif intent == 'question':
             query = preprocess(user_input, remove_stopwords=True)
@@ -208,7 +225,10 @@ if __name__ == "__main__":
             print(f"Yappinator: {corpus.iloc[best_ans]['Answer']}")
 
         elif intent == 'small_talk':
-            print("Yappinator: I'm doing well, thanks for asking! How can I help you today?")
+            if username:
+                print("Yappinator: Im doing well, thanks for asking", username)
+            else:
+                print("Yappinator: I'm doing well, thanks for asking! How can I help you today?")
 
         elif intent == 'discoverability':
             print('Yappinator: I can answer some questions, try asking me "What does gringo mean?"')
