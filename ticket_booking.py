@@ -17,13 +17,40 @@ settings = {
 tfidf_matrix, vectorizer = load_model(corpus, 'city', False, settings, "city_names")
 
 
-def get_time(text):
+def book_ticket_stepped():
+    actual_cities = []
 
+    print("Im sorry I couldn't get it right the first time\nLet's try one step at a time")
+    print("Enter your departure city, note this needs to be a major city within the UK, e.g. London")
+    user_input = input("> ")
+    actual_cities.append(confidence(user_input))
+    print("Great, we're half way threre! Now enter your destination city.")
+    user_input = input("> ")
+    actual_cities.append(confidence(user_input))
+    print("Now we just need a suitable date and time for your travel")
+    user_input = input("> ")
+
+    ticket_from = actual_cities[0]
+    ticket_to = actual_cities[1]
+    ticket_date = get_time(user_input)
+    ticket_date = ticket_date[0][1].strftime('%d-%m-%Y %H:%M')
+
+    print(f"I got the following information: From {ticket_from} to {ticket_to} on {ticket_date}, is that correct?")
+    user_response = input("> ")
+    response_class = classifier.classify_text(user_response)
+    if response_class[0] == 'positive':
+        return
+    else:
+        print("Here we go again")
+        book_ticket_stepped()
+
+
+def get_time(text):
     ticket_date = search_dates(text, languages=['en'],
                                settings={'PREFER_DATES_FROM': 'future', 'RELATIVE_BASE': datetime.datetime.now()})
 
     current_day = datetime.datetime.now()
-    next_day = current_day+datetime.timedelta(days=1)
+    next_day = current_day + datetime.timedelta(days=1)
     while (ticket_date == None):
         print(f"Please enter a valid date and time. For example, {next_day.strftime('%d/%m/%Y')} at 10:00")
         user_input = input("> ")
@@ -58,7 +85,9 @@ def confidence(text):
             user_response = input("> ")
             return confidence(user_response)
     else:
-        return
+        print("Sorry, I didn't understand, enter the name again")
+        user_response = input("> ")
+        return confidence(user_response)
 
 
 def book_ticket(user_input):
@@ -87,8 +116,8 @@ def book_ticket(user_input):
     actual_cities = list(set(actual_cities) & set(valid_cities))
     print(f"Actual cities: {actual_cities}")
 
-    # if len(actual_cities) == 0:
-        # book_ticket_stepped()
+    if len(actual_cities) == 0:
+        book_ticket_stepped()
 
     ticket_from = actual_cities[0]
     ticket_to = actual_cities[1]
@@ -100,5 +129,5 @@ def book_ticket(user_input):
     response_class = classifier.classify_text(user_response)
     if response_class[0] == 'positive':
         return
-    # else:
-        # book_ticket_stepped()
+    else:
+        book_ticket_stepped()
