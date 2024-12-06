@@ -1,96 +1,11 @@
 import sqlite3
-import string
 
-import nltk
+import ticket_booking
+import classifier
+from utils import preprocess, build_index, query_similarity, load_model
+
 import pandas as pd
-from nltk import WordNetLemmatizer, word_tokenize, pos_tag, ne_chunk
-from nltk.corpus import stopwords
-from pandas import DataFrame
-from sklearn.feature_extraction.text import TfidfVectorizer
-from scipy.spatial.distance import cosine
-import numpy as np
-
-
-def preprocess(raw_text, remove_stopwords):
-    lemmatizer = WordNetLemmatizer()
-    raw_text = raw_text.lower()
-    # Modify string.punctuation
-    string.punctuation = string.punctuation + "’" + "-" + "‘" + "-"
-    string.punctuation = string.punctuation.replace('.', '')
-    # Use the modified string.punctuation to remove punctuation from raw_text
-    raw_text = raw_text.translate(str.maketrans('', '', string.punctuation))
-
-    filtered_tokens = nltk.word_tokenize(raw_text)
-    processed_tokens = []
-
-    if remove_stopwords:
-        filtered_tokens = [word for word in filtered_tokens if word not in stopwords.words('english')]
-
-    posmap = {
-        'ADJ': 'a',
-        'ADV': 'r',
-        'NOUN': 'n',
-        'VERB': 'v',
-    }
-
-    post = nltk.pos_tag(filtered_tokens, tagset='universal')
-    for token in post:
-        word = token[0]
-        tag = token[1]
-        if tag in posmap.keys():
-            processed_tokens.append(lemmatizer.lemmatize(word, posmap[tag]))
-        else:
-            processed_tokens.append(lemmatizer.lemmatize(word))
-
-    # return a preprocessed string
-    print(processed_tokens)
-    return " ".join(processed_tokens)
-
-
-def read_csv(filepath):
-    df = pd.read_csv(filepath, index_col='QuestionID')
-    return df
-
-
-def build_index(data:DataFrame, column:str, stopwords:bool):
-    questions = data.loc[:, column]
-
-    # Apply preprocessing to each question in the corpus
-    # do not remove stops words for intent matrix
-    questions = questions.apply(lambda q: preprocess(q, remove_stopwords=stopwords))
-
-    # Create a TF-IDF term-document matrix
-    vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform(questions)
-
-    return tfidf_matrix, vectorizer
-
-
-def query_similarity(query, tfidf_matrix, vectorizer):
-    # Transform the query to match the TF-IDF representation
-    query_vector = vectorizer.transform([query])
-
-    # Convert to dense arrays for the dot product
-    query_array = query_vector.toarray().flatten()
-    doc_arrays = tfidf_matrix.toarray()
-
-    # Calculate similarities using vectorized operations
-    similarity_scores = []
-    for doc_vector in doc_arrays:
-        # Check if either vector is zero magnitude to avoid divide-by-zero error
-        if np.linalg.norm(query_array) == 0 or np.linalg.norm(doc_vector) == 0:
-            similarity = 0  # Assign a similarity score of 0 if either vector has zero magnitude
-        else:
-            similarity = 1 - cosine(query_array, doc_vector)
-        similarity_scores.append(similarity)
-
-    # Create results DataFrame
-    results = pd.DataFrame({
-        'Document': [f'Q{i + 1}' for i in range(tfidf_matrix.shape[0])],
-        'Cosine Similarity': similarity_scores
-    })
-
-    return results.sort_values(by='Cosine Similarity', ascending=False)
+from nltk import word_tokenize, pos_tag, ne_chunk
 
 
 def save_name(name):
@@ -161,6 +76,7 @@ def extract_name(text):
     tokens = word_tokenize(text)
     tagged = pos_tag(tokens)
     entities = ne_chunk(tagged)
+    # print(entities)
 
     # Look for PERSON entities
     for chunk in entities:
@@ -169,7 +85,7 @@ def extract_name(text):
 
     # Check tags for NNP because it doesn't seem to recognise uncommon names
     for token, tag in tagged:
-        if tag == 'NNP':
+        if tag == 'NNP' or tag =='NN':
             return token
 
     # No name found, try again
@@ -177,12 +93,30 @@ def extract_name(text):
 
 
 if __name__ == "__main__":
+    classifier.train_model(split_data=False)
     CSV_PATH = "COMP3074-CW1-Dataset.csv"
-    corpus = read_csv(CSV_PATH)
+    CSV_INTENTS = "intents.csv"
+    corpus = pd.read_csv(CSV_PATH, index_col='QuestionID')
+    intent_corpus = pd.read_csv(CSV_INTENTS, names=['Intent', 'Pattern'])
 
+    # Default Settings
+    settings = {}
+    # Load or build the search model
     # stops word are removed for the QnA
-    tfidf_matrix, vectorizer = build_index(corpus, "Question", True)
-    intent_corpus, intent_matrix, intent_vectorizer = create_intent_index()
+    tfidf_matrix, vectorizer = load_model(
+        corpus=corpus,
+        column_name="Question",
+        remove_stopwords=True,
+        settings=settings,
+        model_name="search")
+    # Load or build the intent model
+    intent_matrix, intent_vectorizer = load_model(
+        corpus=intent_corpus,
+        column_name="Pattern",
+        remove_stopwords=False,
+        settings=settings,
+        model_name="intent"
+    )
 
     print("Yappinator: Hello, how can I help you today?")
 
@@ -210,6 +144,10 @@ if __name__ == "__main__":
                     # If NER fails, use the entire input as the name
                     save_name(name_input)
                     username = name_input
+
+        elif intent == 'booking':
+        #     book a train ticket
+            ticket_booking.book_ticket(user_input)
 
         elif intent == 'identity':
             if username:
