@@ -1,5 +1,3 @@
-import sqlite3
-
 import ticket_booking
 import classifier
 import utils
