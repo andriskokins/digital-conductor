@@ -2,10 +2,8 @@ from datetime import datetime, timedelta, time
 
 import pandas as pd
 from nltk import word_tokenize, pos_tag, ne_chunk
-# from dateparser.search import search_dates
 
 import classifier
-import utils
 from utils import query_similarity, preprocess, load_model
 
 
@@ -52,7 +50,7 @@ def book_ticket_stepped():
 
 def get_time(text):
     # Orange list library
-    # Checks if dataparser library is installed
+    # Checks if dateparser library is installed
     # if not return default date of tomorrow at 10:30
     try:
         from dateparser.search import search_dates
@@ -140,7 +138,7 @@ def book_ticket(user_input, attempts=0):
     for city in potential_cities:
         actual_cities.append(confidence(city))
 
-    actual_cities = [city for city in actual_cities if city in valid_cities]
+    actual_cities = [city for city in potential_cities if city in valid_cities]
     print(f"Actual cities: {actual_cities}")
 
     if (attempts <= 1):

@@ -1,4 +1,6 @@
 click==8.1.7
+dataparser==0.0.2
+dateparser==1.2.0
 joblib==1.4.2
 nltk==3.9.1
 numpy==2.1.2

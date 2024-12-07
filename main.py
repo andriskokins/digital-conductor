@@ -9,7 +9,7 @@ from nltk import word_tokenize, pos_tag, ne_chunk
 
 def create_intent_index():
     # Read the CSV file into a DataFrame
-    df = pd.read_csv('intents.csv', header=0,  names=['Intent', 'Pattern'])
+    df = pd.read_csv('data/intents.csv', header=0, names=['Intent', 'Pattern'])
 
     # DO NOT REMOVE STOPWORDS
     # "what can you do" outputs an empty string otherwise
@@ -29,7 +29,7 @@ def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
     similarity_scores['Intent'] = intent_corpus['Intent'].iloc[similarity_scores.index].values
 
     # Print the list of probabilities with intent types
-    # print(similarity_scores[['Intent', 'Cosine Similarity']][:5])
+    print(similarity_scores[['Intent', 'Cosine Similarity']][:5])
 
     # Get the index of the highest scoring pattern
     best_match_idx = similarity_scores.index[0]
@@ -63,7 +63,7 @@ def extract_name(text):
 
     # Check tags for NNP because it doesn't seem to recognise uncommon names
     for token, tag in tagged:
-        if tag == 'NNP' or tag =='NN':
+        if tag == 'NNP' or tag == 'NN':
             return token
 
     # No name found, try again
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     classifier.train_model(split_data=False)
     utils.initialize_database()
     CSV_PATH = "COMP3074-CW1-Dataset.csv"
-    CSV_INTENTS = "intents.csv"
+    CSV_INTENTS = "data/intents.csv"
     corpus = pd.read_csv(CSV_PATH, index_col='QuestionID')
     intent_corpus = pd.read_csv(CSV_INTENTS, names=['Intent', 'Pattern'])
 
@@ -125,10 +125,30 @@ if __name__ == "__main__":
                     username = name_input
 
         elif intent == 'booking':
-        #     book a train ticket
+            #     book a train ticket
             ticket = ticket_booking.book_ticket(user_input)
             utils.save_ticket(username, ticket['departure'], ticket['destination'], ticket['time'])
-            print(utils.get_tickets(username))
+
+        elif intent == 'ticket':
+            if username:
+                print(utils.get_tickets(username))
+            else:
+                print("Yappinator: Looks like you haven't introduced yourself yet. Would you like give me the name "
+                      "you used to reserve your ticket?")
+                print("Yappinator: Alternatively, provide your ticket reference number")
+                print("Yappinator: Reply with a yes for name and no for reference")
+                reply = input("> ")
+                reply = classifier.classify_text(reply)
+                if reply[1] == 'positive':
+                    print("Yappinator: Great! What's your name please")
+                    user_input = input("> ")
+                    extracted_name = extract_name(user_input)
+                    utils.save_name(extracted_name)
+                    print(utils.get_ticket(extracted_name))
+                else:
+                    print("Yappinator: Alright, type in your reference number below")
+                    reference_number = int(input("> "))
+                    print(utils.get_ticket(reference_number))
 
         elif intent == 'identity':
             if username:
