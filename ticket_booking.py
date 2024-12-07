@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, time
 
 import pandas as pd
 from nltk import word_tokenize, pos_tag, ne_chunk
-from dateparser.search import search_dates
+# from dateparser.search import search_dates
 
 import classifier
 import utils
@@ -51,6 +51,17 @@ def book_ticket_stepped():
 
 
 def get_time(text):
+    # Orange list library
+    # Checks if dataparser library is installed
+    # if not return default date of tomorrow at 10:30
+    try:
+        from dateparser.search import search_dates
+    except ImportError:
+        print("search_dates library is not installed. Returning default datetime.")
+        # Return tomorrow's date at 10:30
+        default_datetime = datetime.now().replace(hour=10, minute=30) + timedelta(days=1)
+        return [("default", default_datetime)]
+
     next_day = datetime.now() + timedelta(days=1)
 
     while True:
