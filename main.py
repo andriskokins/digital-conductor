@@ -2,31 +2,11 @@ import sqlite3
 
 import ticket_booking
 import classifier
+import utils
 from utils import preprocess, build_index, query_similarity, load_model
 
 import pandas as pd
 from nltk import word_tokenize, pos_tag, ne_chunk
-
-
-def save_name(name):
-    connection = sqlite3.connect('names.db')
-    cursor = connection.cursor()
-
-    cursor.execute('''CREATE TABLE IF NOT EXISTS Name
-                            (Username VARCHAR(255))''')
-
-    cursor.execute('''SELECT username FROM Name WHERE username=?''', (name,))
-    result = cursor.fetchone()
-
-    if result is None:
-        cursor.execute('''INSERT INTO Name (username)
-                            VALUES(?)''', (name,))
-        connection.commit()
-        print(f"Hello {name}, I will make sure to remember you next time.")
-        return
-    else:
-        print("Welcome back", name, '\b! How can I help you today?')
-    connection.close()
 
 
 def create_intent_index():
@@ -42,7 +22,7 @@ def create_intent_index():
 def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
     user_input = preprocess(user_input, remove_stopwords=False)
     user_input = "".join(user_input)
-    print(user_input)
+    # print(user_input)
 
     # Get similarity scores
     similarity_scores = query_similarity(user_input, intent_matrix, intent_vectorizer)
@@ -51,7 +31,7 @@ def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
     similarity_scores['Intent'] = intent_corpus['Intent'].iloc[similarity_scores.index].values
 
     # Print the list of probabilities with intent types
-    print(similarity_scores[['Intent', 'Cosine Similarity']][:5])
+    # print(similarity_scores[['Intent', 'Cosine Similarity']][:5])
 
     # Get the index of the highest scoring pattern
     best_match_idx = similarity_scores.index[0]
@@ -94,6 +74,7 @@ def extract_name(text):
 
 if __name__ == "__main__":
     classifier.train_model(split_data=False)
+    utils.initialize_database()
     CSV_PATH = "COMP3074-CW1-Dataset.csv"
     CSV_INTENTS = "intents.csv"
     corpus = pd.read_csv(CSV_PATH, index_col='QuestionID')
@@ -138,23 +119,25 @@ if __name__ == "__main__":
                 name_input = input("> ")
                 extracted_name = extract_name(name_input)
                 if extracted_name:
-                    save_name(extracted_name)
+                    utils.save_name(extracted_name)
                     username = extracted_name
                 else:
                     # If NER fails, use the entire input as the name
-                    save_name(name_input)
+                    utils.save_name(name_input)
                     username = name_input
 
         elif intent == 'booking':
         #     book a train ticket
-            ticket_booking.book_ticket(user_input)
+            ticket = ticket_booking.book_ticket(user_input)
+            utils.save_ticket(username, ticket['departure'], ticket['destination'], ticket['time'])
+            print(utils.get_tickets(username))
 
         elif intent == 'identity':
             if username:
                 print("Yappinator: Your name is", username)
             else:
                 print("Yappinator: I don't know your name yet. Would you like to introduce yourself?")
-                save_name(extract_name(input("> ")))
+                utils.save_name(extract_name(input("> ")))
 
         elif intent == 'question':
             query = preprocess(user_input, remove_stopwords=True)

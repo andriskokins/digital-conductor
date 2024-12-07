@@ -1,6 +1,7 @@
 import os
 import pickle
 import string
+import sqlite3
 
 import nltk
 import numpy as np
@@ -119,3 +120,91 @@ def load_model(corpus:DataFrame, column_name:str, remove_stopwords:bool,
             pickle.dump(vectorizer, f)
 
     return tfidf_matrix, vectorizer
+
+
+def initialize_database():
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+
+    # Create the Name table if it doesn't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Name (
+            Username VARCHAR(255) PRIMARY KEY
+        )
+    ''')
+
+    # Create the Tickets table with a foreign key to the Name table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Tickets (
+            TicketID INTEGER PRIMARY KEY AUTOINCREMENT,
+            Username VARCHAR(255),
+            DepartureCity VARCHAR(255),
+            DestinationCity VARCHAR(255),
+            TravelDateTime DATETIME,
+            FOREIGN KEY (Username) REFERENCES Name(Username)
+        )
+    ''')
+
+    connection.commit()
+    connection.close()
+
+
+def save_name(name):
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT Username FROM Name WHERE Username=?', (name,))
+    result = cursor.fetchone()
+
+    if result is None:
+        cursor.execute('INSERT INTO Name (Username) VALUES (?)', (name,))
+        connection.commit()
+        print(f"Hello {name}, I will make sure to remember you next time.")
+    else:
+        print(f"Welcome back {name}! How can I help you today?")
+
+    connection.close()
+
+
+def save_ticket(username, departure_city, destination_city, travel_datetime):
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+
+    # Convert datetime object to string in ISO format
+    travel_datetime = travel_datetime.strftime('%Y-%m-%d %H:%M:%S')
+
+    cursor.execute('''
+        INSERT INTO Tickets (Username, DepartureCity, DestinationCity, TravelDateTime)
+        VALUES (?, ?, ?, ?)''', (username, departure_city, destination_city, travel_datetime))
+
+    ticket_id = cursor.lastrowid
+
+    connection.commit()
+    connection.close()
+    print("Your ticket has been saved.")
+    print(f"Your reference number is {ticket_id}")
+
+
+def get_tickets(username):
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT DepartureCity, DestinationCity, TravelDateTime
+        FROM Tickets
+        WHERE Username=?''', (username,))
+    tickets = cursor.fetchall()
+    connection.close()
+    return tickets
+
+def get_ticket(reference_number):
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT DepartureCity, DestinationCity, TravelDateTime
+        FROM Tickets
+        WHERE TicketID=?''', (reference_number,))
+    ticket = cursor.fetchone()
+    connection.close()
+    return ticket
