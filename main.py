@@ -46,7 +46,7 @@ def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
 def extract_name(text):
     # Check for invalid input
     if text.isdigit() or text.strip() == '':
-        print("Yappinator: Please enter a name that is not a digit or empty.")
+        print("Digital Conductor: Please enter a name that is not a digit or empty.")
         input_name = input("> ")
         return extract_name(input_name)
 
@@ -73,9 +73,9 @@ def extract_name(text):
 if __name__ == "__main__":
     classifier.train_model(split_data=False)
     utils.initialize_database()
-    CSV_PATH = "COMP3074-CW1-Dataset.csv"
+    CSV_PATH = "data/question_answer.csv"
     CSV_INTENTS = "data/intents.csv"
-    corpus = pd.read_csv(CSV_PATH, index_col='QuestionID')
+    corpus = pd.read_csv(CSV_PATH, names=['Question', 'Answer'])
     intent_corpus = pd.read_csv(CSV_INTENTS, names=['Intent', 'Pattern'])
 
     # Default Settings
@@ -97,14 +97,14 @@ if __name__ == "__main__":
         model_name="intent"
     )
 
-    print("Yappinator: Hello, how can I help you today?")
+    print("Digital Conductor: Hello, how can I help you today?")
 
     username = ""
     while True:
         user_input = input("> ")
 
         if user_input.lower() in ("quit", "stop", "exit"):
-            print("Yappinator: Goodbye")
+            print("Digital Conductor: Goodbye")
             break
 
         intent = get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer)
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             if username:
                 print(f"Hello {username}")
             else:
-                print("Yappinator: Hello, what's your name?")
+                print("Digital Conductor: Hello, what's your name?")
                 name_input = input("> ")
                 extracted_name = extract_name(name_input)
                 if extracted_name:
@@ -127,50 +127,55 @@ if __name__ == "__main__":
         elif intent == 'booking':
             #     book a train ticket
             ticket = ticket_booking.book_ticket(user_input)
+            if username:
+                print(f"Digital Conductor: {username} your ticket has been booked.")
             utils.save_ticket(username, ticket['departure'], ticket['destination'], ticket['time'])
 
         elif intent == 'ticket':
             if username:
                 print(utils.get_tickets(username))
             else:
-                print("Yappinator: Looks like you haven't introduced yourself yet. Would you like give me the name "
+                print("Digital Conductor: Looks like you haven't introduced yourself yet. Would you like give me the name "
                       "you used to reserve your ticket?")
-                print("Yappinator: Alternatively, provide your ticket reference number")
-                print("Yappinator: Reply with a yes for name and no for reference")
+                print("Digital Conductor: Alternatively, provide your ticket reference number")
+                print("Digital Conductor: Reply with a yes for name and no for reference")
                 reply = input("> ")
                 reply = classifier.classify_text(reply)
-                if reply[1] == 'positive':
-                    print("Yappinator: Great! What's your name please")
+                if reply[0] == 'positive':
+                    print("Digital Conductor: Great! What's your name please")
                     user_input = input("> ")
                     extracted_name = extract_name(user_input)
-                    utils.save_name(extracted_name)
-                    print(utils.get_ticket(extracted_name))
+                    username = extracted_name
+                    print(utils.get_tickets(extracted_name))
                 else:
-                    print("Yappinator: Alright, type in your reference number below")
+                    print("Digital Conductor: Alright, type in your reference number below")
                     reference_number = int(input("> "))
                     print(utils.get_ticket(reference_number))
 
         elif intent == 'identity':
             if username:
-                print("Yappinator: Your name is", username)
+                print("Digital Conductor: Your name is", username)
             else:
-                print("Yappinator: I don't know your name yet. Would you like to introduce yourself?")
+                print("Digital Conductor: I don't know your name yet. Would you like to introduce yourself?")
                 utils.save_name(extract_name(input("> ")))
 
         elif intent == 'question':
             query = preprocess(user_input, remove_stopwords=True)
             similarity_scores = query_similarity(query, tfidf_matrix, vectorizer)
             best_ans = similarity_scores.index[0]
-            print(f"Yappinator: {corpus.iloc[best_ans]['Answer']}")
+            if (corpus.iloc[best_ans]['Answer'] == 'Answer'):
+                print("Digital Conductor: Sorry, I don't have the knowledge to answer that, please try again..")
+            else:
+                print(f"Digital Conductor: {corpus.iloc[best_ans]['Answer']}")
 
         elif intent == 'small_talk':
             if username:
-                print("Yappinator: Im doing well, thanks for asking", username)
+                print("Digital Conductor: Im doing well, thanks for asking", username)
             else:
-                print("Yappinator: I'm doing well, thanks for asking! How can I help you today?")
+                print("Digital Conductor: I'm doing well, thanks for asking! How can I help you today?")
 
         elif intent == 'discoverability':
-            print('Yappinator: I can answer some questions, try asking me "What does gringo mean?"')
+            print('Digital Conductor: I can answer some questions, try asking me "What does gringo mean?"')
 
         else:
-            print("Yappinator: Sorry, I didn't understand that. Please try again.")
+            print("Digital Conductor: Sorry, I didn't understand that. Please try again.")

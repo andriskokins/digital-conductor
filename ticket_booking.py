@@ -4,6 +4,7 @@ import pandas as pd
 from nltk import word_tokenize, pos_tag, ne_chunk
 
 import classifier
+import utils
 from utils import query_similarity, preprocess, load_model
 
 
@@ -21,14 +22,14 @@ tfidf_matrix, vectorizer = load_model(corpus, 'city', False, settings, "city_nam
 def book_ticket_stepped():
     actual_cities = []
 
-    print("Im sorry I couldn't get it right the first time\nLet's try one step at a time")
-    print("Enter your departure city, note this needs to be a city within the UK, e.g. London")
+    print("Digital Conductor: Im sorry I couldn't get it right the first time\nLet's try one step at a time")
+    print("Digital Conductor: Enter your departure city, note this needs to be a city within the UK, e.g. London")
     user_input = input("> ")
     actual_cities.append(confidence(user_input))
-    print("Great, we're half way there! Now enter your destination city.")
+    print("Digital Conductor: Great, we're half way there! Now enter your destination city.")
     user_input = input("> ")
     actual_cities.append(confidence(user_input))
-    print("Now we just need a suitable date and time for your travel")
+    print("Digital Conductor: Now we just need a suitable date and time for your travel")
     user_input = input("> ")
 
     ticket = {
@@ -38,13 +39,14 @@ def book_ticket_stepped():
     }
     ticket_date = ticket['time'].strftime('%d-%m-%Y %H:%M')
 
-    print(f"I got the following information: From {ticket['departure']} to {ticket['destination']} on {ticket_date}, is that correct?")
+    print(f"Digital Conductor: I got the following information: From {ticket['departure']} to {ticket['destination']} on {ticket_date}, is that correct?")
     user_response = input("> ")
+    user_response = utils.preprocess(user_response)
     response_class = classifier.classify_text(user_response)
     if response_class[0] == 'positive':
         return ticket
     else:
-        print("Here we go again")
+        print("Digital Conductor: Here we go again")
         book_ticket_stepped()
 
 
@@ -71,14 +73,14 @@ def get_time(text):
 
             # Check if date is at least 30 minutes in the future
             if (parsed_date - current_time) < timedelta(minutes=30):
-                print("Please enter a date and time at least 30 minutes from now.")
+                print("Digital Conductor: Please enter a date and time at least 30 minutes from now.")
             # Check if time is between 06:00 and 23:00
             elif time(23, 0) <= parsed_date.time() or parsed_date.time() <= time(6, 0):
-                print("Please enter a time between 06:00 and 23:00.")
+                print("Digital Conductor: Please enter a time between 06:00 and 23:00.")
             else:
                 return ticket_date
         else:
-            print(f"Please enter a valid date and time. For example, {next_day.strftime('%d/%m/%Y')} at 10:00")
+            print(f"Digital Conductor: Please enter a valid date and time. For example, {next_day.strftime('%d/%m/%Y')} at 10:00")
 
         # Prompt the user for input again
         text = input("> ")
@@ -100,13 +102,13 @@ def confidence(text):
         return top_match
     elif conf_value >= medium_threshold:
         # Medium confidence - ask for confirmation
-        print(f"Did you mean '{top_match}'?")
+        print(f"Digital Conductor: Did you mean '{top_match}'?")
         user_response = input("> ")
         response_class = classifier.classify_text(user_response)
         if response_class[0] == 'positive':
             return top_match
         else:
-            print("Sorry, I didn't understand, enter the name again")
+            print("Digital Conductor: Sorry, I didn't understand, enter the name again")
             user_response = input("> ")
             return confidence(user_response)
     # else:
@@ -144,8 +146,8 @@ def book_ticket(user_input, attempts=0):
     if (attempts <= 1):
         if (len(actual_cities) < 2):
             attempts += 1
-            print("Yappinator: To book a ticket, enter the departure city, then the destination city, followed by a suitable date and time.")
-            print("Yappinator: For example 'I want to travel from London to Manchester tomorrow at 10:00'")
+            print("Digital Conductor: To book a ticket, enter the departure city, then the destination city, followed by a suitable date and time.")
+            print("Digital Conductor: For example 'I want to travel from London to Manchester tomorrow at 10:00'")
             user_input = input("> ")
             return book_ticket(user_input, attempts)
         # elif (len(actual_cities) > 2):
@@ -164,7 +166,7 @@ def book_ticket(user_input, attempts=0):
     }
 
     ticket_date = ticket['time'].strftime('%d-%m-%Y %H:%M')
-    print(f"I got the following information: From {ticket['departure']} to {ticket['destination']} on {ticket_date}, is that correct?")
+    print(f"Digital Conductor: I got the following information: From {ticket['departure']} to {ticket['destination']} on {ticket_date}, is that correct?")
     user_response = input("> ")
     response_class = classifier.classify_text(user_response)
     if response_class[0] == 'positive':

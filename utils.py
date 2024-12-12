@@ -12,6 +12,12 @@ from pandas import DataFrame
 from scipy.spatial.distance import cosine
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('universal_tagset')
+nltk.download('punkt')
+
 
 def preprocess(raw_text, remove_stopwords):
     lemmatizer = WordNetLemmatizer()
@@ -45,7 +51,6 @@ def preprocess(raw_text, remove_stopwords):
             processed_tokens.append(lemmatizer.lemmatize(word))
 
     # return a preprocessed string
-    # print(processed_tokens)
     return " ".join(processed_tokens)
 
 
@@ -72,11 +77,12 @@ def query_similarity(query, tfidf_matrix, vectorizer):
         'Document': [f'Q{i + 1}' for i in range(tfidf_matrix.shape[0])],
         'Cosine Similarity': similarity_scores
     })
-
     return results.sort_values(by='Cosine Similarity', ascending=False)
 
 
-def build_index(data:DataFrame, column:str, stopwords:bool, settings:dict=None):
+
+def build_index(data: DataFrame, column: str, stopwords: bool, settings: dict = {}):
+    # Get all rows from the specified column
     questions = data.loc[:, column]
 
     # Apply preprocessing to each question in the corpus
@@ -84,18 +90,14 @@ def build_index(data:DataFrame, column:str, stopwords:bool, settings:dict=None):
     questions = questions.apply(lambda q: preprocess(q, remove_stopwords=stopwords))
 
     # Create a TF-IDF term-document matrix
-    if settings is None:
-        settings = {}
-
     vectorizer = TfidfVectorizer(**settings)
-    # vectorizer = TfidfVectorizer(analyzer='char_wb', ngram_range=(3, 5))
     tfidf_matrix = vectorizer.fit_transform(questions)
 
     return tfidf_matrix, vectorizer
 
 
-def load_model(corpus:DataFrame, column_name:str, remove_stopwords:bool,
-               settings, model_name:str):
+def load_model(corpus: DataFrame, column_name: str, remove_stopwords: bool,
+               settings, model_name: str):
     # Directory to save the pickle files
     pickle_dir = "models"
     os.makedirs(pickle_dir, exist_ok=True)
@@ -159,9 +161,9 @@ def save_name(name):
     if result is None:
         cursor.execute('INSERT INTO Name (Username) VALUES (?)', (name,))
         connection.commit()
-        print(f"Hello {name}, I will make sure to remember you next time.")
+        print(f"Digital Conductor: Hello {name}, I will make sure to remember you next time.")
     else:
-        print(f"Welcome back {name}! How can I help you today?")
+        print(f"Digital Conductor: Welcome back {name}! How can I help you today?")
 
     connection.close()
 
@@ -181,8 +183,7 @@ def save_ticket(username, departure_city, destination_city, travel_datetime):
 
     connection.commit()
     connection.close()
-    print("Your ticket has been saved.")
-    print(f"Your reference number is {ticket_id}")
+    print(f"Digital Conductor: Your reference number is {ticket_id}")
 
 
 def get_tickets(username):
@@ -196,6 +197,7 @@ def get_tickets(username):
     tickets = cursor.fetchall()
     connection.close()
     return tickets
+
 
 def get_ticket(reference_number):
     connection = sqlite3.connect('database.db')

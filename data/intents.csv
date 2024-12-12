@@ -54,6 +54,62 @@ question,why are
 question,where is
 question,when is
 question,who is
+question,what is your
+question,do you offer
+question,when is
+question,who is
+question,what is your
+question,do you offer
+question,how can I
+question,where is
+question,why does
+question,can I
+question,what are
+question,how much
+question,when does
+question,what time
+question,do you have
+question,how do I
+question,are there
+question,can you
+question,what is
+question,which
+question,how long
+question,do I need
+question,will you
+question,can we
+question,what should
+question,how many
+question,does it
+question,is there
+question,could you
+question,would you
+question,should I
+question,am I able to
+question,do they
+question,have you
+question,does the
+question,may I
+question,what's the
+question,when will
+question,why is
+question,who can
+question,where can I
+question,what kind of
+question,can it
+question,are you
+question,how does
+question,do we
+question,can they
+question,shall I
+question,would it
+question,would they
+question,could it be
+question,is it possible to
+question,how often
+question,what happens if
+question,do you know
+question,could I
 booking,book train
 booking,Book a train
 booking,Book ticket
@@ -83,7 +139,6 @@ booking,Train ticket booking
 booking,Book a return train ticket
 booking,Book a one-way train ticket
 booking,Book train with sleeper
-booking,Book train with meals
 booking,Book train with window seat
 booking,Book train from Leeds to York
 booking,Book train from Edinburgh to Glasgow
@@ -133,3 +188,36 @@ ticket,Show my train reservation details
 ticket,When is my train arrival?
 ticket,What are my train itinerary?
 ticket,Show my confirmed train tickets
+ticket,I want to check my booked train tickets
+ticket,Check my tickets
+ticket,When is my train arrival?
+ticket,What are my train itinerary?
+ticket,Show my confirmed train tickets
+ticket,I want to check my booked train tickets
+ticket,Check my tickets
+ticket,Show tickets
+ticket,My tickets
+ticket,Get my tickets
+ticket,Retrieve my tickets
+ticket,Display my tickets
+ticket,View my tickets
+ticket,See my tickets
+ticket,Tickets
+ticket,Booked tickets
+ticket,Any tickets booked?
+ticket,Do I have any tickets?
+ticket,What tickets have I booked?
+ticket,I want to see my tickets
+ticket,Please show my tickets
+ticket,Show me my tickets
+ticket,Show my train tickets
+ticket,Check my train tickets
+ticket,My booked tickets
+ticket,My train tickets
+ticket,Show my ticket details
+ticket,Give me my tickets
+ticket,Display booked tickets
+ticket,Have I booked any tickets?
+ticket,Looking up my tickets
+ticket,Find my tickets
+ticket,Check booked tickets
