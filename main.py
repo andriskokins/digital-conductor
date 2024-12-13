@@ -1,3 +1,7 @@
+import time
+
+from nltk.corpus import stopwords
+
 import ticket_booking
 import classifier
 import utils
@@ -29,7 +33,7 @@ def get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer):
     similarity_scores['Intent'] = intent_corpus['Intent'].iloc[similarity_scores.index].values
 
     # Print the list of probabilities with intent types
-    print(similarity_scores[['Intent', 'Cosine Similarity']][:5])
+    # print(similarity_scores[['Intent', 'Cosine Similarity']][:5])
 
     # Get the index of the highest scoring pattern
     best_match_idx = similarity_scores.index[0]
@@ -107,6 +111,7 @@ if __name__ == "__main__":
             print("Digital Conductor: Goodbye")
             break
 
+        start = time.time()
         intent = get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer)
 
         if intent == 'greeting':
@@ -130,6 +135,8 @@ if __name__ == "__main__":
             if username:
                 print(f"Digital Conductor: {username} your ticket has been booked.")
             utils.save_ticket(username, ticket['departure'], ticket['destination'], ticket['time'])
+            end = time.time()
+            print(f"Time taken: {end - start:.2f} seconds")
 
         elif intent == 'ticket':
             if username:
@@ -164,7 +171,7 @@ if __name__ == "__main__":
             similarity_scores = query_similarity(query, tfidf_matrix, vectorizer)
             best_ans = similarity_scores.index[0]
             if (corpus.iloc[best_ans]['Answer'] == 'Answer'):
-                print("Digital Conductor: Sorry, I don't have the knowledge to answer that, please try again..")
+                print("Digital Conductor: Sorry, I don't have the knowledge to answer that, please try again...")
             else:
                 print(f"Digital Conductor: {corpus.iloc[best_ans]['Answer']}")
 
@@ -175,7 +182,10 @@ if __name__ == "__main__":
                 print("Digital Conductor: I'm doing well, thanks for asking! How can I help you today?")
 
         elif intent == 'discoverability':
-            print('Digital Conductor: I can answer some questions, try asking me "What does gringo mean?"')
+            if username:
+                print(f"Digital Conductor: I can help you book a train ticket or search the database for bookings under {username}.")
+            else:
+                print("Digital Conductor: I can help you book a train ticket, view your ticket, or answer general questions.")
 
         else:
             print("Digital Conductor: Sorry, I didn't understand that. Please try again.")

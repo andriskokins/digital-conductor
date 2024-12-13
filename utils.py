@@ -4,12 +4,11 @@ import string
 import sqlite3
 
 import nltk
-import numpy as np
 import pandas as pd
 from nltk import WordNetLemmatizer
 from nltk.corpus import stopwords
 from pandas import DataFrame
-from scipy.spatial.distance import cosine
+from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 nltk.download('stopwords')
@@ -19,66 +18,47 @@ nltk.download('universal_tagset')
 nltk.download('punkt')
 
 
-def preprocess(raw_text, remove_stopwords):
+def preprocess(raw_text: str, remove_stopwords: bool = False):
     lemmatizer = WordNetLemmatizer()
     raw_text = raw_text.lower()
-    # Modify string.punctuation
-    string.punctuation = string.punctuation + "’" + "-" + "‘" + "-"
-    string.punctuation = string.punctuation.replace('.', '')
-    # Use the modified string.punctuation to remove punctuation from raw_text
-    raw_text = raw_text.translate(str.maketrans('', '', string.punctuation))
 
-    filtered_tokens = nltk.word_tokenize(raw_text)
-    processed_tokens = []
+    # Define custom punctuation
+    custom_punctuation = string.punctuation.replace('.', '') + "’" + "-" + "‘" + "-"
 
+    # Remove punctuation
+    translator = str.maketrans('', '', custom_punctuation)
+    raw_text = raw_text.translate(translator)
+
+    # Tokenize text
+    tokens = nltk.word_tokenize(raw_text)
+
+    # Remove stopwords if specified
     if remove_stopwords:
-        filtered_tokens = [word for word in filtered_tokens if word not in stopwords.words('english')]
+        stop_words = set(stopwords.words('english'))
+        tokens = [word for word in tokens if word not in stop_words]
 
-    posmap = {
-        'ADJ': 'a',
-        'ADV': 'r',
-        'NOUN': 'n',
-        'VERB': 'v',
-    }
+    # POS tagging and lemmatization
+    pos_map = {'ADJ': 'a', 'ADV': 'r', 'NOUN': 'n', 'VERB': 'v'}
+    pos_tags = nltk.pos_tag(tokens, tagset='universal')
+    processed_tokens = [
+        lemmatizer.lemmatize(word, pos_map.get(tag, 'n')) for word, tag in pos_tags
+    ]
 
-    post = nltk.pos_tag(filtered_tokens, tagset='universal')
-    for token in post:
-        word = token[0]
-        tag = token[1]
-        if tag in posmap.keys():
-            processed_tokens.append(lemmatizer.lemmatize(word, posmap[tag]))
-        else:
-            processed_tokens.append(lemmatizer.lemmatize(word))
-
-    # return a preprocessed string
-    return " ".join(processed_tokens)
+    return ' '.join(processed_tokens)
 
 
 def query_similarity(query, tfidf_matrix, vectorizer):
     # Transform the query to match the TF-IDF representation
     query_vector = vectorizer.transform([query])
 
-    # Convert to dense arrays for the dot product
-    query_array = query_vector.toarray().flatten()
-    doc_arrays = tfidf_matrix.toarray()
+    # Calculate cosine similarities
+    similarity_scores = cosine_similarity(query_vector, tfidf_matrix).flatten()
 
-    # Calculate similarities using vectorized operations
-    similarity_scores = []
-    for doc_vector in doc_arrays:
-        # Check if either vector is zero magnitude to avoid divide-by-zero error
-        if np.linalg.norm(query_array) == 0 or np.linalg.norm(doc_vector) == 0:
-            similarity = 0  # Assign a similarity score of 0 if either vector has zero magnitude
-        else:
-            similarity = 1 - cosine(query_array, doc_vector)
-        similarity_scores.append(similarity)
-
-    # Create results DataFrame
     results = pd.DataFrame({
         'Document': [f'Q{i + 1}' for i in range(tfidf_matrix.shape[0])],
         'Cosine Similarity': similarity_scores
     })
     return results.sort_values(by='Cosine Similarity', ascending=False)
-
 
 
 def build_index(data: DataFrame, column: str, stopwords: bool, settings: dict = {}):

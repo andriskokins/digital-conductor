@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, time
-
 import pandas as pd
 from nltk import word_tokenize, pos_tag, ne_chunk
 
@@ -95,7 +94,6 @@ def confidence(text):
     similarity_scores = query_similarity(query, tfidf_matrix, vectorizer)
     top_match = corpus.iloc[similarity_scores.index[0]]['city']
     conf_value = similarity_scores.iloc[0]['Cosine Similarity']
-    print(f"Confidence for '{text}' matching '{top_match}': {conf_value}")
 
     if conf_value >= high_threshold:
         # High confidence - accept the city
@@ -111,15 +109,10 @@ def confidence(text):
             print("Digital Conductor: Sorry, I didn't understand, enter the name again")
             user_response = input("> ")
             return confidence(user_response)
-    # else:
-    #     print("Sorry, I didn't understand, enter the name again")
-    #     user_response = input("> ")
-    #     return confidence(user_response)
 
 
 def book_ticket(user_input, attempts=0):
 
-    valid_cities = corpus['city'].tolist()
     potential_cities = []
     actual_cities = []
 
@@ -127,7 +120,7 @@ def book_ticket(user_input, attempts=0):
     tagged = pos_tag(tokens)
     entities = ne_chunk(tagged)
 
-    potential_cities += [word for word, pos in tagged if pos in ('NN', 'NNS', 'NNP', 'NNPS', 'VB')]
+    potential_cities += [word for word, pos in tagged if pos in ('NN', 'NNS', 'NNP', 'NNPS', 'VB', 'JJ')]
 
     # Look for GPE - only works properly for well-known places and needs to be capitalized
     for chunk in entities:
@@ -135,28 +128,19 @@ def book_ticket(user_input, attempts=0):
             city = ' '.join(c[0] for c in chunk.leaves())
             if city not in potential_cities:
                 potential_cities.append(city)
-    print(f"Potential cities: {potential_cities}")
 
     for city in potential_cities:
         actual_cities.append(confidence(city))
 
-    actual_cities = [city for city in potential_cities if city in valid_cities]
-    print(f"Actual cities: {actual_cities}")
+    actual_cities = [city for city in actual_cities if city is not None]
 
-    if (attempts <= 1):
-        if (len(actual_cities) < 2):
-            attempts += 1
-            print("Digital Conductor: To book a ticket, enter the departure city, then the destination city, followed by a suitable date and time.")
-            print("Digital Conductor: For example 'I want to travel from London to Manchester tomorrow at 10:00'")
-            user_input = input("> ")
-            return book_ticket(user_input, attempts)
-        # elif (len(actual_cities) > 2):
-        #     attempts += 1
-        #     print("Yappinator: I can only book tickets for two cities at a time.")
-        #     print("Yappinator: For example 'I want to travel from London to Manchester tomorrow at 10:00'")
-        #     user_input = input("> ")
-        #     return book_ticket(user_input, attempts)
-    elif (len(actual_cities) != 2):
+    if attempts < 1 and len(actual_cities) < 2:
+        attempts += 1
+        print("Digital Conductor: To book a ticket, enter the departure city, then the destination city, followed by a suitable date and time.")
+        print("Digital Conductor: For example 'I want to travel from London to Manchester tomorrow at 10:00'")
+        user_input = input("> ")
+        return book_ticket(user_input, attempts)
+    elif len(actual_cities) != 2:
         return book_ticket_stepped()
 
     ticket = {
