@@ -74,7 +74,7 @@ Digital Conductor: Small pets are allowed if kept in a suitable carrier.
 
 ## Documentation
 
-For detailed information about the project architecture, implementation details, and evaluation results, please refer to the [complete project report](docs/report.pdf).
+For detailed information about the project architecture, implementation details, and evaluation results, please refer to the [complete project report](docs/Chatbot_Report.pdf).
 
 ## Author
 
