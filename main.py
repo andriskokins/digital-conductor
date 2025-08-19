@@ -111,7 +111,6 @@ if __name__ == "__main__":
             print("Digital Conductor: Goodbye")
             break
 
-        start = time.time()
         intent = get_intent(user_input, intent_corpus, intent_matrix, intent_vectorizer)
 
         if intent == 'greeting':
@@ -135,8 +134,6 @@ if __name__ == "__main__":
             if username:
                 print(f"Digital Conductor: {username} your ticket has been booked.")
             utils.save_ticket(username, ticket['departure'], ticket['destination'], ticket['time'])
-            end = time.time()
-            print(f"Time taken: {end - start:.2f} seconds")
 
         elif intent == 'ticket':
             if username:
